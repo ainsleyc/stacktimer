@@ -86,7 +86,7 @@ describe 'stacktimer.js', ->
     expect(stub.calledOnce).to.be.true
     expect(stub.calledWith("arg1", "arg2")).to.be.true
 
-  it 'should push() and pop() the stack frome if exec is called on a sync function', ->
+  it 'should push() and pop() the stack frame if exec is called on a sync function', ->
     func = ->
       stack = Caddy.get(STACK_KEY)
       expect(stack.length).to.equal(2)
@@ -98,18 +98,71 @@ describe 'stacktimer.js', ->
     expect(stack.length).to.equal(1)
     result = Stacktimer.stop()
 
-  it 'should push() and pop() the stack frome if exec is called on an async function', (done) ->
-    func = ->
-      setTimeout(->
-        stack = Caddy.get(STACK_KEY)
-        expect(stack.length).to.equal(2)
-        expect(stack[1].toJSON().task).to.equal("subTask")
-        result = Stacktimer.stop()
-        done()
-      , 100)
-      return
+  it 'should push() and pop() the stack frame if exec is called on an async function', (done) ->
     Stacktimer.start(null, null, ->)
     stack = Caddy.get(STACK_KEY)
     expect(stack.length).to.equal(1)
-    Stacktimer.exec('subTask', this, [], func)
+    Stacktimer.exec('subTask', this, [->
+      expect(stack.length).to.equal(2)
+      expect(stack[1].toJSON().task).to.equal("subTask")
+      result = Stacktimer.stop()
+      done()
+    ], (cb) ->
+      cb()
+    )
     expect(stack.length).to.equal(1)
+
+  it 'should create a chain of subTasks when exec is called on sync functions', ->
+    Stacktimer.start(null, null, ->)
+    Stacktimer.exec('task', this, [], ->
+      Stacktimer.exec('subTask', this, [], ->
+        Stacktimer.exec('subSubTask', this, [], ->)
+      )
+      Stacktimer.exec('subTask2', this, [], ->)
+    )
+    result = Stacktimer.stop()
+    expect(result.task).to.equal('request')
+    expect(result.subTasks[0].task).to.equal('task')
+    expect(result.subTasks[0].end).to.exist
+    expect(result.subTasks[0].subTasks[0].task).to.equal('subTask')
+    expect(result.subTasks[0].subTasks[0].end).to.exist
+    expect(result.subTasks[0].subTasks[0].subTasks[0].task).to.equal('subSubTask')
+    expect(result.subTasks[0].subTasks[0].subTasks[0].end).to.exist
+    expect(result.subTasks[0].subTasks[1].task).to.equal('subTask2')
+    expect(result.subTasks[0].subTasks[1].end).to.exist
+
+  it 'should create a chain of subTasks when exec is called on async functions', ->
+    Stacktimer.start(null, null, ->)
+    Stacktimer.exec('task', this, [->], (cb) ->
+      Stacktimer.exec('subTask', this, [->], (cb) ->
+        Stacktimer.exec('subSubTask', this, [->], (cb) ->
+          cb()
+        )
+        cb()
+      )
+      cb()
+      result = Stacktimer.stop()
+      expect(result.task).to.equal('request')
+      expect(result.subTasks[0].task).to.equal('task')
+      expect(result.subTasks[0].end).to.exist
+      expect(result.subTasks[0].subTasks[0].task).to.equal('subTask')
+      expect(result.subTasks[0].subTasks[0].end).to.exist
+      expect(result.subTasks[0].subTasks[0].subTasks[0].task).to.equal('subSubTask')
+      expect(result.subTasks[0].subTasks[0].subTasks[0].end).to.exist
+    )
+
+  it 'should return a wrapped function when stub is called', ->
+    func = ->
+      stack = Caddy.get(STACK_KEY)
+      expect(stack.length).to.equal(2)
+      expect(stack[1].toJSON().task).to.equal("testWrap")
+      expect(arguments[0]).to.equal("arg1")
+      expect(arguments[1]).to.equal("arg2")
+      Stacktimer.stop()
+    Stacktimer.start(null, null, ->)
+    stack = Caddy.get(STACK_KEY)
+    expect(stack.length).to.equal(1)
+    wrapped = Stacktimer.stub('testWrap', this, func)
+    expect(stack.length).to.equal(1)
+    wrapped("arg1", "arg2");
+

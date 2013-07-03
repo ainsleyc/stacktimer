@@ -28,7 +28,7 @@ Stacktimer.stub = (tag, thisArg, fn) ->
     throw new Error("provided tag does not exist")
 
   return ->
-    args = Array.slice.call(arguments)
+    args = Array::slice.call(arguments)
     Stacktimer.exec(tag, thisArg, args, fn)
 
 Stacktimer.exec = (tag, thisArg, args, fn) ->
@@ -43,10 +43,20 @@ Stacktimer.exec = (tag, thisArg, args, fn) ->
   if not stack
     fn.apply(thisArg ? this, args)
     return
-  trace = new Trace(tag)
+  trace = stack[stack.length-1].start(tag)
+  argCount = args.length
   stack.push(trace)
-  fn.apply(thisArg ? this, args)
-  stack.pop()
+  if argCount > 0 and typeof(args[argCount-1]) is 'function'
+    callback = args[argCount-1]
+    args[argCount-1] = ->
+      trace.stop()
+      callback.apply(this, Array::slice.call(arguments))
+    fn.apply(thisArg ? this, args)
+    stack.pop()
+  else
+    fn.apply(thisArg ? this, args)
+    trace.stop()
+    stack.pop()
   return
 
 Stacktimer.add = (key, data) ->

@@ -38,13 +38,13 @@
     }
     return function() {
       var args;
-      args = Array.slice.call(arguments);
+      args = Array.prototype.slice.call(arguments);
       return Stacktimer.exec(tag, thisArg, args, fn);
     };
   };
 
   Stacktimer.exec = function(tag, thisArg, args, fn) {
-    var stack, trace;
+    var argCount, callback, stack, trace;
     if (typeof fn !== 'function') {
       throw new Error("typeof(fn) !== 'function'");
     }
@@ -59,10 +59,22 @@
       fn.apply(thisArg != null ? thisArg : this, args);
       return;
     }
-    trace = new Trace(tag);
+    trace = stack[stack.length - 1].start(tag);
+    argCount = args.length;
     stack.push(trace);
-    fn.apply(thisArg != null ? thisArg : this, args);
-    stack.pop();
+    if (argCount > 0 && typeof args[argCount - 1] === 'function') {
+      callback = args[argCount - 1];
+      args[argCount - 1] = function() {
+        trace.stop();
+        return callback.apply(this, Array.prototype.slice.call(arguments));
+      };
+      fn.apply(thisArg != null ? thisArg : this, args);
+      stack.pop();
+    } else {
+      fn.apply(thisArg != null ? thisArg : this, args);
+      trace.stop();
+      stack.pop();
+    }
   };
 
   Stacktimer.add = function(key, data) {

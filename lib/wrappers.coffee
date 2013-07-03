@@ -9,8 +9,12 @@ wrap = (callback) ->
     savedTrace = stack[stack.length-1]
   ->
     stack = Caddy.get(STACK_KEY)
-    if stack and savedTrace and stack[stack.length-1] isnt savedTrace
-      stack.push(savedTrace)
+    if stack and savedTrace and savedTrace.end?
+      for frame in stack
+        if frame is savedTrace
+          found = true
+      if not found
+        stack.push(savedTrace)
     callback.apply(this, arguments)
 
 _nextTick = process.nextTick

@@ -14,9 +14,18 @@
       savedTrace = stack[stack.length - 1];
     }
     return function() {
+      var found, frame, _i, _len;
       stack = Caddy.get(STACK_KEY);
-      if (stack && savedTrace && stack[stack.length - 1] !== savedTrace) {
-        stack.push(savedTrace);
+      if (stack && savedTrace && (savedTrace.end != null)) {
+        for (_i = 0, _len = stack.length; _i < _len; _i++) {
+          frame = stack[_i];
+          if (frame === savedTrace) {
+            found = true;
+          }
+        }
+        if (!found) {
+          stack.push(savedTrace);
+        }
       }
       return callback.apply(this, arguments);
     };

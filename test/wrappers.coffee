@@ -7,7 +7,7 @@ STACK_KEY = require('../dist/consts').STACK_KEY
 
 describe 'wrappers.js', ->
   beforeEach ->
-    Caddy.set('STACK_KEY', ["arg1", "arg2"])
+    Caddy.set('STACK_KEY', [{ task : 'data' }, { end : 0 }])
 
   afterEach ->
     Caddy.set('STACK_KEY', undefined)
@@ -16,7 +16,7 @@ describe 'wrappers.js', ->
     stack = Caddy.get('STACK_KEY')
     process.nextTick(->
       expect(stack.length).to.equal(2)
-      expect(stack[1]).to.equal("arg2")
+      expect(stack[1].end).to.equal(0)
       done()
     )
     stack.pop()
@@ -26,7 +26,7 @@ describe 'wrappers.js', ->
     stack = Caddy.get('STACK_KEY')
     setTimeout(->
       expect(stack.length).to.equal(2)
-      expect(stack[1]).to.equal("arg2")
+      expect(stack[1].end).to.equal(0)
       done()
     , 100)
     stack.pop()
@@ -36,7 +36,7 @@ describe 'wrappers.js', ->
     stack = Caddy.get('STACK_KEY')
     intervalId = setInterval(->
       expect(stack.length).to.equal(2)
-      expect(stack[1]).to.equal("arg2")
+      expect(stack[1].end).to.equal(0)
       clearInterval(intervalId)
       done()
     , 100)
@@ -48,7 +48,7 @@ describe 'wrappers.js', ->
     stack = Caddy.get('STACK_KEY')
     emitter.on('test', ->
       expect(stack.length).to.equal(2)
-      expect(stack[1]).to.equal("arg2")
+      expect(stack[1].end).to.equal(0)
       done()
     )
     stack.pop()
@@ -60,7 +60,7 @@ describe 'wrappers.js', ->
     stack = Caddy.get('STACK_KEY')
     emitter.addListener('test', ->
       expect(stack.length).to.equal(2)
-      expect(stack[1]).to.equal("arg2")
+      expect(stack[1].end).to.equal(0)
       done()
     )
     stack.pop()
@@ -72,7 +72,7 @@ describe 'wrappers.js', ->
     stack = Caddy.get('STACK_KEY')
     emitter.once('test', ->
       expect(stack.length).to.equal(2)
-      expect(stack[1]).to.equal("arg2")
+      expect(stack[1].end).to.equal(0)
       done()
     )
     stack.pop()
