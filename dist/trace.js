@@ -38,8 +38,8 @@
       var data, key, result, _i, _len, _ref, _ref1;
       result = {
         task: self.task,
-        start: self.root.startTime - self.startTime,
-        end: self.endTime != null ? self.root.startTime - self.endTime : void 0,
+        start: self.startTime - self.root.startTime,
+        end: self.endTime != null ? self.endTime - self.root.startTime : void 0,
         duration: self.endTime != null ? self.endTime - self.startTime : void 0
       };
       if (self.subTasks.length > 0) {

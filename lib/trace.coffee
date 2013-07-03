@@ -32,8 +32,8 @@ TraceBlock = (task, root) ->
   self.toJSON = ->
     result = {
       task: self.task
-      start: self.root.startTime - self.startTime
-      end: self.root.startTime - self.endTime if self.endTime?
+      start: self.startTime - self.root.startTime
+      end: self.endTime - self.root.startTime if self.endTime?
       duration: self.endTime - self.startTime if self.endTime?
     }
     if self.subTasks.length > 0
