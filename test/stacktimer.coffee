@@ -10,7 +10,9 @@ describe 'stacktimer.js', ->
     expect(Stacktimer.start).to.exist
     expect(Stacktimer.stop).to.exist
     expect(Stacktimer.stub).to.exist
+    expect(Stacktimer.stubs).to.exist
     expect(Stacktimer.exec).to.exist
+    expect(Stacktimer.execs).to.exist
     expect(Stacktimer.add).to.exist
     expect(Stacktimer.toJSON).to.exist
 
@@ -86,7 +88,7 @@ describe 'stacktimer.js', ->
     expect(stub.calledOnce).to.be.true
     expect(stub.calledWith("arg1", "arg2")).to.be.true
 
-  it 'should push() and pop() the stack frame if exec is called on a sync function', ->
+  it 'should push onto the stack when execs is called on a sync function', ->
     func = ->
       stack = Caddy.get(STACK_KEY)
       expect(stack.length).to.equal(2)
@@ -94,31 +96,33 @@ describe 'stacktimer.js', ->
     Stacktimer.start(null, null, ->)
     stack = Caddy.get(STACK_KEY)
     expect(stack.length).to.equal(1)
-    Stacktimer.exec('subTask', this, [], func)
+    Stacktimer.execs('subTask', this, [], func)
     expect(stack.length).to.equal(1)
     result = Stacktimer.stop()
 
-  it 'should push() and pop() the stack frame if exec is called on an async function', (done) ->
+  it 'should push onto the stack when execs is called on an async function', (done) ->
     Stacktimer.start(null, null, ->)
     stack = Caddy.get(STACK_KEY)
     expect(stack.length).to.equal(1)
-    Stacktimer.exec('subTask', this, [->
-      expect(stack.length).to.equal(2)
-      expect(stack[1].toJSON().task).to.equal("subTask")
+    Stacktimer.execs('subTask', this, [->
+      expect(stack.length).to.equal(1)
       result = Stacktimer.stop()
+      expect(result.task).to.equal("request")
+      expect(result.subTasks[0].task).to.equal("subTask")
       done()
     ], (cb) ->
+      expect(stack.length).to.equal(2)
       cb()
     )
     expect(stack.length).to.equal(1)
 
-  it 'should create a chain of subTasks when exec is called on sync functions', ->
+  it 'should create a chain of subTasks when execs is called on sync functions', ->
     Stacktimer.start(null, null, ->)
-    Stacktimer.exec('task', this, [], ->
-      Stacktimer.exec('subTask', this, [], ->
-        Stacktimer.exec('subSubTask', this, [], ->)
+    Stacktimer.execs('task', this, [], ->
+      Stacktimer.execs('subTask', this, [], ->
+        Stacktimer.execs('subSubTask', this, [], ->)
       )
-      Stacktimer.exec('subTask2', this, [], ->)
+      Stacktimer.execs('subTask2', this, [], ->)
     )
     result = Stacktimer.stop()
     expect(result.task).to.equal('request')
@@ -131,11 +135,11 @@ describe 'stacktimer.js', ->
     expect(result.subTasks[0].subTasks[1].task).to.equal('subTask2')
     expect(result.subTasks[0].subTasks[1].end).to.exist
 
-  it 'should create a chain of subTasks when exec is called on async functions', ->
+  it 'should create a chain of subTasks when execs is called on async functions', ->
     Stacktimer.start(null, null, ->)
-    Stacktimer.exec('task', this, [->], (cb) ->
-      Stacktimer.exec('subTask', this, [->], (cb) ->
-        Stacktimer.exec('subSubTask', this, [->], (cb) ->
+    Stacktimer.execs('task', this, [->], (cb) ->
+      Stacktimer.execs('subTask', this, [->], (cb) ->
+        Stacktimer.execs('subSubTask', this, [->], (cb) ->
           cb()
         )
         cb()
@@ -162,7 +166,7 @@ describe 'stacktimer.js', ->
     Stacktimer.start(null, null, ->)
     stack = Caddy.get(STACK_KEY)
     expect(stack.length).to.equal(1)
-    wrapped = Stacktimer.stub('testWrap', this, func)
+    wrapped = Stacktimer.stubs('testWrap', func)
     expect(stack.length).to.equal(1)
     wrapped("arg1", "arg2");
 
