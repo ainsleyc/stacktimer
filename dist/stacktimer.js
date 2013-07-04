@@ -1,6 +1,8 @@
 (function() {
   var CURR_FRAME_KEY, Caddy, STACK_KEY, Stacktimer, Trace, exec, stub;
 
+  require('./wrappers');
+
   Caddy = require('caddy');
 
   Trace = require('./trace');

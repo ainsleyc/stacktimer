@@ -1,5 +1,5 @@
 
-#require('./wrappers')
+require('./wrappers')
 Caddy = require('caddy')
 Trace = require('./trace')
 
