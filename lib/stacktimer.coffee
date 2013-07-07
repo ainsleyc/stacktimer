@@ -2,17 +2,23 @@
 require('./wrappers')
 Caddy = require('caddy')
 Trace = require('./trace')
+EventEmitter = require('events').EventEmitter
 
 Stacktimer = {}
+emitter = new EventEmitter()
 
 STACK_KEY = require('./consts').STACK_KEY
 CURR_FRAME_KEY = require('./consts').CURR_FRAME_KEY
+
+Stacktimer.START_EVENT = "STACKTIMER_START"
+Stacktimer.STOP_EVENT = "STACKTIMER_STOP"
 
 Stacktimer.start = (req, res, next) ->
   Caddy.start()
   stack = [new Trace('request')]
   Caddy.set(STACK_KEY, stack)
   Caddy.set(CURR_FRAME_KEY, stack[0])
+  emitter.emit(Stacktimer.STACKTIMER_START, 'request')
   next()
   return
 
@@ -20,6 +26,7 @@ Stacktimer.stop = () ->
   stack = Caddy.get(STACK_KEY)
   Caddy.set(STACK_KEY, undefined)
   if stack
+    emitter.emit(Stacktimer.STACKTIMER_STOP, 'request')
     stack[0].stop()
     return stack[0].toJSON()
 
@@ -39,6 +46,11 @@ Stacktimer.add = (key, data) ->
   frame = Caddy.get(CURR_FRAME_KEY)
   if frame
     frame.add(key, data)
+  return
+
+Stacktimer.on = (event, cb) ->
+  if event is Stacktimer.STACKTIMER_START or event is Stacktimer.STACKTIMER_STOP
+    emitter.on(event, cb)
   return
 
 Stacktimer.toJSON = ->
@@ -68,10 +80,14 @@ exec = (tag, thisArg, args, fn, atomic) ->
       trace.stop()
       if not atomic then stack.pop()
       Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
+      emitter.emit(Stacktimer.STACKTIMER_STOP, tag)
       callback.apply(this, Array::slice.call(arguments))
+    emitter.emit(Stacktimer.STACKTIMER_START, tag)
     fn.apply(thisArg ? this, args)
   else
+    emitter.emit(Stacktimer.STACKTIMER_START, tag)
     fn.apply(thisArg ? this, args)
+    emitter.emit(Stacktimer.STACKTIMER_STOP, tag)
     trace.stop()
     if not atomic then stack.pop()
     Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])

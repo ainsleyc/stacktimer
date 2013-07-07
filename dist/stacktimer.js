@@ -1,5 +1,5 @@
 (function() {
-  var CURR_FRAME_KEY, Caddy, STACK_KEY, Stacktimer, Trace, exec, stub;
+  var CURR_FRAME_KEY, Caddy, EventEmitter, STACK_KEY, Stacktimer, Trace, emitter, exec, stub;
 
   require('./wrappers');
 
@@ -7,11 +7,19 @@
 
   Trace = require('./trace');
 
+  EventEmitter = require('events').EventEmitter;
+
   Stacktimer = {};
+
+  emitter = new EventEmitter();
 
   STACK_KEY = require('./consts').STACK_KEY;
 
   CURR_FRAME_KEY = require('./consts').CURR_FRAME_KEY;
+
+  Stacktimer.START_EVENT = "STACKTIMER_START";
+
+  Stacktimer.STOP_EVENT = "STACKTIMER_STOP";
 
   Stacktimer.start = function(req, res, next) {
     var stack;
@@ -19,6 +27,7 @@
     stack = [new Trace('request')];
     Caddy.set(STACK_KEY, stack);
     Caddy.set(CURR_FRAME_KEY, stack[0]);
+    emitter.emit(Stacktimer.STACKTIMER_START, 'request');
     next();
   };
 
@@ -27,6 +36,7 @@
     stack = Caddy.get(STACK_KEY);
     Caddy.set(STACK_KEY, void 0);
     if (stack) {
+      emitter.emit(Stacktimer.STACKTIMER_STOP, 'request');
       stack[0].stop();
       return stack[0].toJSON();
     }
@@ -53,6 +63,12 @@
     frame = Caddy.get(CURR_FRAME_KEY);
     if (frame) {
       frame.add(key, data);
+    }
+  };
+
+  Stacktimer.on = function(event, cb) {
+    if (event === Stacktimer.STACKTIMER_START || event === Stacktimer.STACKTIMER_STOP) {
+      emitter.on(event, cb);
     }
   };
 
@@ -94,11 +110,15 @@
           stack.pop();
         }
         Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
+        emitter.emit(Stacktimer.STACKTIMER_STOP, tag);
         return callback.apply(this, Array.prototype.slice.call(arguments));
       };
+      emitter.emit(Stacktimer.STACKTIMER_START, tag);
       fn.apply(thisArg != null ? thisArg : this, args);
     } else {
+      emitter.emit(Stacktimer.STACKTIMER_START, tag);
       fn.apply(thisArg != null ? thisArg : this, args);
+      emitter.emit(Stacktimer.STACKTIMER_STOP, tag);
       trace.stop();
       if (!atomic) {
         stack.pop();
