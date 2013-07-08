@@ -18,7 +18,7 @@ Stacktimer.start = (req, res, next) ->
   stack = [new Trace('request')]
   Caddy.set(STACK_KEY, stack)
   Caddy.set(CURR_FRAME_KEY, stack[0])
-  emitter.emit(Stacktimer.STACKTIMER_START, 'request')
+  emit(Stacktimer.START_EVENT, 'request')
   next()
   return
 
@@ -26,7 +26,7 @@ Stacktimer.stop = () ->
   stack = Caddy.get(STACK_KEY)
   Caddy.set(STACK_KEY, undefined)
   if stack
-    emitter.emit(Stacktimer.STACKTIMER_STOP, 'request')
+    emit(Stacktimer.STOP_EVENT, 'request')
     stack[0].stop()
     return stack[0].toJSON()
 
@@ -49,7 +49,7 @@ Stacktimer.add = (key, data) ->
   return
 
 Stacktimer.on = (event, cb) ->
-  if event is Stacktimer.STACKTIMER_START or event is Stacktimer.STACKTIMER_STOP
+  if event is Stacktimer.START_EVENT or event is Stacktimer.STOP_EVENT
     emitter.on(event, cb)
   return
 
@@ -80,14 +80,14 @@ exec = (tag, thisArg, args, fn, atomic) ->
       trace.stop()
       if not atomic then stack.pop()
       Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
-      emitter.emit(Stacktimer.STACKTIMER_STOP, tag)
+      emit(Stacktimer.STOP_EVENT, tag)
       callback.apply(this, Array::slice.call(arguments))
-    emitter.emit(Stacktimer.STACKTIMER_START, tag)
+    emit(Stacktimer.START_EVENT, tag)
     fn.apply(thisArg ? this, args)
   else
-    emitter.emit(Stacktimer.STACKTIMER_START, tag)
+    emit(Stacktimer.START_EVENT, tag)
     fn.apply(thisArg ? this, args)
-    emitter.emit(Stacktimer.STACKTIMER_STOP, tag)
+    emit(Stacktimer.STOP_EVENT, tag)
     trace.stop()
     if not atomic then stack.pop()
     Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
@@ -102,6 +102,11 @@ stub = (tag, fn, atomic) ->
   return ->
     args = Array::slice.call(arguments)
     exec(tag, this, args, fn, atomic)
+
+emit = (event, tag) ->
+  process.nextTick(->
+    emitter.emit(event, tag)
+  )
 
 module.exports = Stacktimer
 

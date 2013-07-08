@@ -168,5 +168,38 @@ describe 'stacktimer.js', ->
     expect(stack.length).to.equal(1)
     wrapped = Stacktimer.stubs('testWrap', func)
     expect(stack.length).to.equal(1)
-    wrapped("arg1", "arg2");
+    wrapped("arg1", "arg2")
 
+  it 'should emit start and stop events for sync function calls', (done) ->
+    stub = new sinon.stub()
+    Stacktimer.on(Stacktimer.START_EVENT, stub)
+    Stacktimer.on(Stacktimer.STOP_EVENT, stub)
+    Stacktimer.start(null, null, ->)
+    Stacktimer.exec('task', this, [], ->)
+    Stacktimer.stop()
+    process.nextTick(->
+      expect(stub.getCall(0).args[0]).is.equal('request')
+      expect(stub.getCall(1).args[0]).is.equal('task')
+      expect(stub.getCall(2).args[0]).is.equal('task')
+      expect(stub.getCall(3).args[0]).is.equal('request')
+      expect(stub.callCount).to.equal(4)
+      done()
+    )
+
+  it 'should emit start and stop events for async function calls', (done) ->
+    stub = new sinon.stub()
+    Stacktimer.on(Stacktimer.START_EVENT, stub)
+    Stacktimer.on(Stacktimer.STOP_EVENT, stub)
+    Stacktimer.start(null, null, ->)
+    Stacktimer.exec('task', this, [->], (cb) ->
+      cb()
+    )
+    Stacktimer.stop()
+    process.nextTick(->
+      expect(stub.getCall(0).args[0]).is.equal('request')
+      expect(stub.getCall(1).args[0]).is.equal('task')
+      expect(stub.getCall(2).args[0]).is.equal('task')
+      expect(stub.getCall(3).args[0]).is.equal('request')
+      expect(stub.callCount).to.equal(4)
+      done()
+    )

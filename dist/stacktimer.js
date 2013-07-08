@@ -1,5 +1,5 @@
 (function() {
-  var CURR_FRAME_KEY, Caddy, EventEmitter, STACK_KEY, Stacktimer, Trace, emitter, exec, stub;
+  var CURR_FRAME_KEY, Caddy, EventEmitter, STACK_KEY, Stacktimer, Trace, emit, emitter, exec, stub;
 
   require('./wrappers');
 
@@ -27,7 +27,7 @@
     stack = [new Trace('request')];
     Caddy.set(STACK_KEY, stack);
     Caddy.set(CURR_FRAME_KEY, stack[0]);
-    emitter.emit(Stacktimer.STACKTIMER_START, 'request');
+    emit(Stacktimer.START_EVENT, 'request');
     next();
   };
 
@@ -36,7 +36,7 @@
     stack = Caddy.get(STACK_KEY);
     Caddy.set(STACK_KEY, void 0);
     if (stack) {
-      emitter.emit(Stacktimer.STACKTIMER_STOP, 'request');
+      emit(Stacktimer.STOP_EVENT, 'request');
       stack[0].stop();
       return stack[0].toJSON();
     }
@@ -67,7 +67,7 @@
   };
 
   Stacktimer.on = function(event, cb) {
-    if (event === Stacktimer.STACKTIMER_START || event === Stacktimer.STACKTIMER_STOP) {
+    if (event === Stacktimer.START_EVENT || event === Stacktimer.STOP_EVENT) {
       emitter.on(event, cb);
     }
   };
@@ -110,15 +110,15 @@
           stack.pop();
         }
         Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
-        emitter.emit(Stacktimer.STACKTIMER_STOP, tag);
+        emit(Stacktimer.STOP_EVENT, tag);
         return callback.apply(this, Array.prototype.slice.call(arguments));
       };
-      emitter.emit(Stacktimer.STACKTIMER_START, tag);
+      emit(Stacktimer.START_EVENT, tag);
       fn.apply(thisArg != null ? thisArg : this, args);
     } else {
-      emitter.emit(Stacktimer.STACKTIMER_START, tag);
+      emit(Stacktimer.START_EVENT, tag);
       fn.apply(thisArg != null ? thisArg : this, args);
-      emitter.emit(Stacktimer.STACKTIMER_STOP, tag);
+      emit(Stacktimer.STOP_EVENT, tag);
       trace.stop();
       if (!atomic) {
         stack.pop();
@@ -139,6 +139,12 @@
       args = Array.prototype.slice.call(arguments);
       return exec(tag, this, args, fn, atomic);
     };
+  };
+
+  emit = function(event, tag) {
+    return process.nextTick(function() {
+      return emitter.emit(event, tag);
+    });
   };
 
   module.exports = Stacktimer;
