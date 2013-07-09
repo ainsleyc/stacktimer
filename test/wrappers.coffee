@@ -67,3 +67,42 @@ describe 'wrappers.js', ->
     expect(Caddy.get('CURR_FRAME_KEY')).to.not.exist
     emitter.emit('test')
 
+  it 'should remove event handlers correctly', ->
+    emitter = new EventEmitter()
+
+    addListener1 = ->
+    addListener2 = ->
+    expect(emitter.listeners('addListener').length).to.equal(0)
+    emitter.addListener('addListener', addListener1)
+    emitter.addListener('addListener', addListener2)
+    expect(emitter.listeners('addListener').length).to.equal(2)
+
+    once1 = ->
+    once2 = ->
+    expect(emitter.listeners('once').length).to.equal(0)
+    emitter.once('once', once1)
+    emitter.once('once', once2)
+    expect(emitter.listeners('once').length).to.equal(2)
+
+    on1 = ->
+    on2 = ->
+    expect(emitter.listeners('on').length).to.equal(0)
+    emitter.on('on', on1)
+    emitter.on('on', on2)
+    expect(emitter.listeners('on').length).to.equal(2)
+
+    emitter.removeListener('addListener', addListener2)
+    expect(emitter.listeners('addListener').length).to.equal(1)
+    emitter.removeListener('addListener', addListener1)
+    expect(emitter.listeners('addListener').length).to.equal(0)
+
+    emitter.removeListener('on', on1)
+    expect(emitter.listeners('on').length).to.equal(1)
+    emitter.removeListener('on', on2)
+    expect(emitter.listeners('on').length).to.equal(0)
+
+    emitter.removeListener('once', once2)
+    expect(emitter.listeners('once').length).to.equal(1)
+    emitter.removeListener('once', once1)
+    expect(emitter.listeners('once').length).to.equal(0)
+
