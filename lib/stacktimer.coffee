@@ -29,6 +29,8 @@ Stacktimer.stop = () ->
     emit(Stacktimer.STOP_EVENT, 'request')
     stack[0].stop()
     return stack[0].toJSON()
+  else
+    return null
 
 Stacktimer.stub = (tag, fn) ->
   stub(tag, fn, true)
