@@ -112,6 +112,7 @@
           stack.pop();
         }
         Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
+        Caddy.set(STACK_KEY, stack);
         emit(Stacktimer.STOP_EVENT, tag);
         return callback.apply(this, Array.prototype.slice.call(arguments));
       };
@@ -126,6 +127,7 @@
         stack.pop();
       }
       Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
+      Caddy.set(STACK_KEY, stack);
     }
   };
 

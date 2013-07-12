@@ -82,6 +82,7 @@ exec = (tag, thisArg, args, fn, atomic) ->
       trace.stop()
       if not atomic then stack.pop()
       Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
+      Caddy.set(STACK_KEY, stack)
       emit(Stacktimer.STOP_EVENT, tag)
       callback.apply(this, Array::slice.call(arguments))
     emit(Stacktimer.START_EVENT, tag)
@@ -93,6 +94,7 @@ exec = (tag, thisArg, args, fn, atomic) ->
     trace.stop()
     if not atomic then stack.pop()
     Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
+    Caddy.set(STACK_KEY, stack)
   return
 
 stub = (tag, fn, atomic) ->
