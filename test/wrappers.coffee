@@ -106,3 +106,29 @@ describe 'wrappers.js', ->
     emitter.removeListener('once', once1)
     expect(emitter.listeners('once').length).to.equal(0)
 
+  it 'should once event handlers should be removed correctly after being emmited', (done) ->
+    emitter = new EventEmitter()
+
+    once1 = ->
+    once2 = ->
+    expect(emitter.listeners('once').length).to.equal(0)
+    emitter.once('once', once1)
+    emitter.once('once', once1)
+    emitter.once('once', once2)
+    emitter.once('once2', once1)
+    emitter.once('once2', once2)
+    expect(emitter.listeners('once').length).to.equal(3)
+    expect(emitter.listeners('once2').length).to.equal(2)
+
+    emitter.emit('once')
+    process.nextTick(->
+      expect(emitter.listeners('once').length).to.equal(0)
+      expect(emitter.listeners('once2').length).to.equal(2)
+      emitter.emit('once2')
+      process.nextTick(->
+        expect(emitter.listeners('once').length).to.equal(0)
+        expect(emitter.listeners('once2').length).to.equal(0)
+        done()
+      )
+    )
+
