@@ -27,8 +27,16 @@
       return newTask;
     };
     self.stop = function(meta) {
+      var _i, _len, _ref, _results;
       if (!self.endTime) {
-        return self.endTime = Date.now();
+        self.endTime = Date.now();
+        _ref = self.subTasks;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          task = _ref[_i];
+          _results.push(task.stop());
+        }
+        return _results;
       }
     };
     self.add = function(tag, data) {

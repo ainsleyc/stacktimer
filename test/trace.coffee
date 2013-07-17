@@ -29,13 +29,13 @@ describe 'trace.js', ->
     expect(results.subTasks[0].subTasks[0].task).to.equal('subSubTest')
     expect(results.subTasks[1].task).to.equal('subTest2')
     expect(results.subTasks[1].subTasks).to.not.exist
-  it 'should close tasks that have stop() called on them', ->
+  it 'should close tasks and subTasks that have stop() called on them', ->
     trace = new Trace('test')
     subTrace = trace.start('subTest')
-    subTrace.stop()
+    trace.stop()
     results = trace.toJSON()
-    expect(results.end).to.not.exist
-    expect(results.duration).to.not.exist
+    expect(results.end).to.exist
+    expect(results.duration).to.exist
     expect(results.subTasks[0].end).to.exist
     expect(results.subTasks[0].duration).to.exist
   it 'should add extra data to trace when add() is called', ->

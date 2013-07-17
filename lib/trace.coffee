@@ -25,6 +25,8 @@ TraceBlock = (task, root) ->
   self.stop = (meta) ->
     if not self.endTime
       self.endTime = Date.now()
+      for task in self.subTasks
+        task.stop()
 
   self.add = (tag, data) ->
     self.meta[tag] = data
