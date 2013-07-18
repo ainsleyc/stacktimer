@@ -1,8 +1,12 @@
 {
   "name": "stacktimer",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": false,
   "main": "./dist/stacktimer.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ainsleychong/stacktimer.git"
+  },
   "dependencies": {
     "caddy": "latest" 
   },
