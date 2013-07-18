@@ -35,7 +35,7 @@
     var stack;
     stack = Caddy.get(STACK_KEY);
     Caddy.set(STACK_KEY, void 0);
-    if (stack) {
+    if (stack && stack[0]) {
       emit(Stacktimer.STOP_EVENT, 'request');
       stack[0].stop();
       return stack[0].toJSON();
@@ -108,7 +108,7 @@
       callback = args[argCount - 1];
       args[argCount - 1] = function() {
         trace.stop();
-        if (!atomic) {
+        if (!atomic && stack.length > 1) {
           stack.pop();
         }
         Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
@@ -123,7 +123,7 @@
       fn.apply(thisArg != null ? thisArg : this, args);
       emit(Stacktimer.STOP_EVENT, tag);
       trace.stop();
-      if (!atomic) {
+      if (!atomic && stack.length > 1) {
         stack.pop();
       }
       Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);

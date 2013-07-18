@@ -116,6 +116,23 @@ describe 'stacktimer.js', ->
     )
     expect(stack.length).to.equal(1)
 
+  it 'should work when an async callback is called multiple times', (done) ->
+    Stacktimer.start(null, null, ->)
+    stack = Caddy.get(STACK_KEY)
+    expect(stack.length).to.equal(1)
+    Stacktimer.execs('subTask', this, [(finished) ->
+      expect(stack.length).to.equal(1)
+      result = Stacktimer.stop()
+      expect(result.task).to.equal("request")
+      expect(result.subTasks[0].task).to.equal("subTask")
+      if finished then done()
+    ], (cb) ->
+      expect(stack.length).to.equal(2)
+      cb()
+      cb(true)
+    )
+    expect(stack.length).to.equal(1)
+
   it 'should create a chain of subTasks when execs is called on sync functions', ->
     Stacktimer.start(null, null, ->)
     Stacktimer.execs('task', this, [], ->

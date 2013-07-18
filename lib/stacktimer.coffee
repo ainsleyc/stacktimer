@@ -25,7 +25,7 @@ Stacktimer.start = (req, res, next) ->
 Stacktimer.stop = () ->
   stack = Caddy.get(STACK_KEY)
   Caddy.set(STACK_KEY, undefined)
-  if stack
+  if stack and stack[0]
     emit(Stacktimer.STOP_EVENT, 'request')
     stack[0].stop()
     return stack[0].toJSON()
@@ -80,7 +80,7 @@ exec = (tag, thisArg, args, fn, atomic) ->
     callback = args[argCount-1]
     args[argCount-1] = ->
       trace.stop()
-      if not atomic then stack.pop()
+      if not atomic and stack.length > 1 then stack.pop()
       Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
       Caddy.set(STACK_KEY, stack)
       emit(Stacktimer.STOP_EVENT, tag)
@@ -92,7 +92,7 @@ exec = (tag, thisArg, args, fn, atomic) ->
     fn.apply(thisArg ? this, args)
     emit(Stacktimer.STOP_EVENT, tag)
     trace.stop()
-    if not atomic then stack.pop()
+    if not atomic and stack.length > 1 then stack.pop()
     Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
     Caddy.set(STACK_KEY, stack)
   return
