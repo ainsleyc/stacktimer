@@ -83,7 +83,7 @@
   };
 
   exec = function(tag, thisArg, args, fn, atomic) {
-    var argCount, callback, stack, trace;
+    var argCount, callback, stack, stoppedFlag, trace;
     if (typeof fn !== 'function') {
       throw new Error("typeof(fn) !== 'function'");
     }
@@ -105,12 +105,14 @@
       stack.push(trace);
     }
     if (argCount > 0 && typeof args[argCount - 1] === 'function') {
+      stoppedFlag = false;
       callback = args[argCount - 1];
       args[argCount - 1] = function() {
         trace.stop();
-        if (!atomic && stack.length > 1) {
+        if (!atomic && !stoppedFlag) {
           stack.pop();
         }
+        stoppedFlag = true;
         Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
         Caddy.set(STACK_KEY, stack);
         emit(Stacktimer.STOP_EVENT, tag);
@@ -123,7 +125,7 @@
       fn.apply(thisArg != null ? thisArg : this, args);
       emit(Stacktimer.STOP_EVENT, tag);
       trace.stop();
-      if (!atomic && stack.length > 1) {
+      if (!atomic) {
         stack.pop();
       }
       Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);

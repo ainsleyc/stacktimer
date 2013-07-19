@@ -77,10 +77,12 @@ exec = (tag, thisArg, args, fn, atomic) ->
   argCount = args.length
   if not atomic then stack.push(trace)
   if argCount > 0 and typeof(args[argCount-1]) is 'function'
+    stoppedFlag = false
     callback = args[argCount-1]
     args[argCount-1] = ->
       trace.stop()
-      if not atomic and stack.length > 1 then stack.pop()
+      if not atomic and not stoppedFlag then stack.pop()
+      stoppedFlag = true
       Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
       Caddy.set(STACK_KEY, stack)
       emit(Stacktimer.STOP_EVENT, tag)
@@ -92,7 +94,7 @@ exec = (tag, thisArg, args, fn, atomic) ->
     fn.apply(thisArg ? this, args)
     emit(Stacktimer.STOP_EVENT, tag)
     trace.stop()
-    if not atomic and stack.length > 1 then stack.pop()
+    if not atomic then stack.pop()
     Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
     Caddy.set(STACK_KEY, stack)
   return
