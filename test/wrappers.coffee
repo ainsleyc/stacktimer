@@ -37,6 +37,14 @@ describe 'wrappers.js', ->
     Caddy.set('CURR_FRAME_KEY', undefined)
     expect(Caddy.get('CURR_FRAME_KEY')).to.not.exist
 
+  it 'should save caddy stack for setImmediate()', (done) ->
+    setImmediate(->
+      expect(Caddy.get('CURR_FRAME_KEY')).to.equal('data');
+      done()
+    )
+    Caddy.set('CURR_FRAME_KEY', undefined)
+    expect(Caddy.get('CURR_FRAME_KEY')).to.not.exist
+
   it 'should save caddy stack for EventEmitter.on', (done) ->
     emitter = new EventEmitter()
     emitter.on('test', ->
