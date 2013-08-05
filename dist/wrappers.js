@@ -1,5 +1,5 @@
 (function() {
-  var CURR_FRAME_KEY, Caddy, EventEmitter, wrap, _addListener, _nextTick, _on, _once, _removeListener, _setImmediate, _setInterval, _setTimeout;
+  var CURR_FRAME_KEY, Caddy, EventEmitter, wrap, __nextDomainTick, _addListener, _nextTick, _on, _once, _removeListener, _setImmediate, _setInterval, _setTimeout;
 
   Caddy = require('caddy');
 
@@ -32,6 +32,17 @@
       args = Array.prototype.slice.call(arguments);
       args[0] = wrap(false, null, callback);
       return _nextTick.apply(this, args);
+    };
+  }
+
+  __nextDomainTick = process._nextDomainTick;
+
+  if (__nextDomainTick != null) {
+    process._nextDomainTick = function(callback) {
+      var args;
+      args = Array.prototype.slice.call(arguments);
+      args[0] = wrap(false, null, callback);
+      return __nextDomainTick.apply(this, args);
     };
   }
 

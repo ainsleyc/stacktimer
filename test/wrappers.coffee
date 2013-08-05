@@ -20,6 +20,14 @@ describe 'wrappers.js', ->
     Caddy.set('CURR_FRAME_KEY', undefined)
     expect(Caddy.get('CURR_FRAME_KEY')).to.not.exist
 
+  it 'should save caddy stack for _nextDomainTick()', (done) ->
+    process._nextDomainTick(->
+      expect(Caddy.get('CURR_FRAME_KEY')).to.equal('data');
+      done()
+    )
+    Caddy.set('CURR_FRAME_KEY', undefined)
+    expect(Caddy.get('CURR_FRAME_KEY')).to.not.exist
+
   it 'should save caddy stack for setTimeout()', (done) ->
     setTimeout(->
       expect(Caddy.get('CURR_FRAME_KEY')).to.equal('data');
