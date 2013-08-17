@@ -1,3 +1,4 @@
 
-module.exports.STACK_KEY = "STACK_KEY"
+module.exports.ROOT_KEY = "ROOT_KEY"
 module.exports.CURR_FRAME_KEY = "CURR_FRAME_KEY"
+module.exports.ADD_FRAME_KEY = "ADD_FRAME_KEY"

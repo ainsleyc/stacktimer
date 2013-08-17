@@ -1,5 +1,4 @@
 
-require('./wrappers')
 Caddy = require('caddy')
 Trace = require('./trace')
 EventEmitter = require('events').EventEmitter
@@ -7,45 +6,55 @@ EventEmitter = require('events').EventEmitter
 Stacktimer = {}
 emitter = new EventEmitter()
 
-STACK_KEY = require('./consts').STACK_KEY
+ROOT_KEY = require('./consts').ROOT_KEY
 CURR_FRAME_KEY = require('./consts').CURR_FRAME_KEY
+ADD_FRAME_KEY = require('./consts').ADD_FRAME_KEY
 
 Stacktimer.START_EVENT = "STACKTIMER_START"
 Stacktimer.STOP_EVENT = "STACKTIMER_STOP"
 
 Stacktimer.start = (req, res, next) ->
   Caddy.start()
-  stack = [new Trace('request')]
-  Caddy.set(STACK_KEY, stack)
-  Caddy.set(CURR_FRAME_KEY, stack[0])
+  stack = new Trace('request')
+  Caddy.set(ROOT_KEY, stack)
+  Caddy.set(CURR_FRAME_KEY, stack)
+  Caddy.set(ADD_FRAME_KEY, null)
   emit(Stacktimer.START_EVENT, 'request')
   next()
   return
 
 Stacktimer.stop = () ->
-  stack = Caddy.get(STACK_KEY)
-  Caddy.set(STACK_KEY, undefined)
-  if stack and stack[0]
+  stack = Caddy.get(ROOT_KEY)
+  Caddy.set(ROOT_KEY, undefined)
+  Caddy.set(CURR_FRAME_KEY, undefined)
+  Caddy.set(ADD_FRAME_KEY, undefined)
+  if stack
     emit(Stacktimer.STOP_EVENT, 'request')
-    stack[0].stop()
-    return stack[0].toJSON()
+    stack.stop()
+    return stack.toJSON()
   else
     return null
 
 Stacktimer.stub = (tag, fn) ->
-  stub(tag, fn, true)
+  if typeof(fn) isnt 'function'
+    throw new Error("typeof(fn) !== 'function'")
+  if not tag
+    throw new Error("provided tag does not exist")
 
-Stacktimer.exec = (tag, thisArg, args, fn) ->
-  exec(tag, thisArg, args, fn, true)
-
-Stacktimer.stubs = (tag, fn) ->
-  stub(tag, fn, false)
-
-Stacktimer.execs = (tag, thisArg, args, fn) ->
-  exec(tag, thisArg, args, fn, false)
+  return ->
+    args = Array::slice.call(arguments)
+    Stacktimer.exec(tag, this, args, fn)
 
 Stacktimer.add = (key, data) ->
-  frame = Caddy.get(CURR_FRAME_KEY)
+  frame = Caddy.get(ADD_FRAME_KEY)
+  if not frame?
+    frame = Caddy.get(CURR_FRAME_KEY)
+  if frame
+    frame.add(key, data)
+  return
+
+Stacktimer.addRoot = (key, data) ->
+  frame = Caddy.get(ROOT_KEY)
   if frame
     frame.add(key, data)
   return
@@ -56,11 +65,11 @@ Stacktimer.on = (event, cb) ->
   return
 
 Stacktimer.toJSON = ->
-  stack = Caddy.get(STACK_KEY)
+  stack = Caddy.get(ROOT_KEY)
   if stack
-    return stack[0].toJSON()
+    return stack.toJSON()
 
-exec = (tag, thisArg, args, fn, atomic) ->
+Stacktimer.exec = (tag, thisArg, args, fn) ->
   if typeof(fn) isnt 'function'
     throw new Error("typeof(fn) !== 'function'")
   if not Array.isArray(args)
@@ -68,47 +77,42 @@ exec = (tag, thisArg, args, fn, atomic) ->
   if not tag
     throw new Error("provided tag does not exist")
 
-  stack = Caddy.get(STACK_KEY)
+  stack = Caddy.get(ROOT_KEY)
   if not stack
     fn.apply(thisArg ? this, args)
     return
-  trace = stack[stack.length-1].start(tag)
-  Caddy.set(CURR_FRAME_KEY, trace)
+  prevFrame = Caddy.get(CURR_FRAME_KEY)
+  currFrame = prevFrame.start(tag)
+  Caddy.set(CURR_FRAME_KEY, currFrame)
+  Caddy.set(ADD_FRAME_KEY, null)
   argCount = args.length
-  if not atomic then stack.push(trace)
   if argCount > 0 and typeof(args[argCount-1]) is 'function'
+    # If a function is provided then provide a wrapped callback
     stoppedFlag = false
     callback = args[argCount-1]
     args[argCount-1] = ->
-      trace.stop()
-      if not atomic and not stoppedFlag then stack.pop()
-      stoppedFlag = true
-      Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
-      Caddy.set(STACK_KEY, stack)
+      # Reset the previous frame when the callback has been called
+      currFrame.stop()
+      Caddy.set(CURR_FRAME_KEY, prevFrame)
+      Caddy.set(ADD_FRAME_KEY, currFrame)
       emit(Stacktimer.STOP_EVENT, tag)
       callback.apply(this, Array::slice.call(arguments))
+      Caddy.set(ADD_FRAME_KEY, null)
     emit(Stacktimer.START_EVENT, tag)
     fn.apply(thisArg ? this, args)
+    # Reset the previous frame when the functionca call has completed
+    Caddy.set(CURR_FRAME_KEY, prevFrame)
+    Caddy.set(ADD_FRAME_KEY, null)
   else
+    # If a function is not provided, assume it is a sync function and just execute
     emit(Stacktimer.START_EVENT, tag)
     fn.apply(thisArg ? this, args)
     emit(Stacktimer.STOP_EVENT, tag)
-    trace.stop()
-    if not atomic then stack.pop()
-    Caddy.set(CURR_FRAME_KEY, stack[stack.length-1])
-    Caddy.set(STACK_KEY, stack)
+    currFrame.stop()
+    Caddy.set(CURR_FRAME_KEY, prevFrame)
   return
 
 stub = (tag, fn, atomic) ->
-  if typeof(fn) isnt 'function'
-    throw new Error("typeof(fn) !== 'function'")
-  if not tag
-    throw new Error("provided tag does not exist")
-
-  return ->
-    args = Array::slice.call(arguments)
-    exec(tag, this, args, fn, atomic)
-
 emit = (event, tag) ->
   process.nextTick(->
     emitter.emit(event, tag)

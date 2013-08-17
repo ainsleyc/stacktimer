@@ -1,7 +1,5 @@
 (function() {
-  var CURR_FRAME_KEY, Caddy, EventEmitter, STACK_KEY, Stacktimer, Trace, emit, emitter, exec, stub;
-
-  require('./wrappers');
+  var ADD_FRAME_KEY, CURR_FRAME_KEY, Caddy, EventEmitter, ROOT_KEY, Stacktimer, Trace, emit, emitter, stub;
 
   Caddy = require('caddy');
 
@@ -13,9 +11,11 @@
 
   emitter = new EventEmitter();
 
-  STACK_KEY = require('./consts').STACK_KEY;
+  ROOT_KEY = require('./consts').ROOT_KEY;
 
   CURR_FRAME_KEY = require('./consts').CURR_FRAME_KEY;
+
+  ADD_FRAME_KEY = require('./consts').ADD_FRAME_KEY;
 
   Stacktimer.START_EVENT = "STACKTIMER_START";
 
@@ -24,45 +24,57 @@
   Stacktimer.start = function(req, res, next) {
     var stack;
     Caddy.start();
-    stack = [new Trace('request')];
-    Caddy.set(STACK_KEY, stack);
-    Caddy.set(CURR_FRAME_KEY, stack[0]);
+    stack = new Trace('request');
+    Caddy.set(ROOT_KEY, stack);
+    Caddy.set(CURR_FRAME_KEY, stack);
+    Caddy.set(ADD_FRAME_KEY, null);
     emit(Stacktimer.START_EVENT, 'request');
     next();
   };
 
   Stacktimer.stop = function() {
     var stack;
-    stack = Caddy.get(STACK_KEY);
-    Caddy.set(STACK_KEY, void 0);
-    if (stack && stack[0]) {
+    stack = Caddy.get(ROOT_KEY);
+    Caddy.set(ROOT_KEY, void 0);
+    Caddy.set(CURR_FRAME_KEY, void 0);
+    Caddy.set(ADD_FRAME_KEY, void 0);
+    if (stack) {
       emit(Stacktimer.STOP_EVENT, 'request');
-      stack[0].stop();
-      return stack[0].toJSON();
+      stack.stop();
+      return stack.toJSON();
     } else {
       return null;
     }
   };
 
   Stacktimer.stub = function(tag, fn) {
-    return stub(tag, fn, true);
-  };
-
-  Stacktimer.exec = function(tag, thisArg, args, fn) {
-    return exec(tag, thisArg, args, fn, true);
-  };
-
-  Stacktimer.stubs = function(tag, fn) {
-    return stub(tag, fn, false);
-  };
-
-  Stacktimer.execs = function(tag, thisArg, args, fn) {
-    return exec(tag, thisArg, args, fn, false);
+    if (typeof fn !== 'function') {
+      throw new Error("typeof(fn) !== 'function'");
+    }
+    if (!tag) {
+      throw new Error("provided tag does not exist");
+    }
+    return function() {
+      var args;
+      args = Array.prototype.slice.call(arguments);
+      return Stacktimer.exec(tag, this, args, fn);
+    };
   };
 
   Stacktimer.add = function(key, data) {
     var frame;
-    frame = Caddy.get(CURR_FRAME_KEY);
+    frame = Caddy.get(ADD_FRAME_KEY);
+    if (frame == null) {
+      frame = Caddy.get(CURR_FRAME_KEY);
+    }
+    if (frame) {
+      frame.add(key, data);
+    }
+  };
+
+  Stacktimer.addRoot = function(key, data) {
+    var frame;
+    frame = Caddy.get(ROOT_KEY);
     if (frame) {
       frame.add(key, data);
     }
@@ -76,14 +88,14 @@
 
   Stacktimer.toJSON = function() {
     var stack;
-    stack = Caddy.get(STACK_KEY);
+    stack = Caddy.get(ROOT_KEY);
     if (stack) {
-      return stack[0].toJSON();
+      return stack.toJSON();
     }
   };
 
-  exec = function(tag, thisArg, args, fn, atomic) {
-    var argCount, callback, stack, stoppedFlag, trace;
+  Stacktimer.exec = function(tag, thisArg, args, fn) {
+    var argCount, callback, currFrame, prevFrame, stack, stoppedFlag;
     if (typeof fn !== 'function') {
       throw new Error("typeof(fn) !== 'function'");
     }
@@ -93,59 +105,41 @@
     if (!tag) {
       throw new Error("provided tag does not exist");
     }
-    stack = Caddy.get(STACK_KEY);
+    stack = Caddy.get(ROOT_KEY);
     if (!stack) {
       fn.apply(thisArg != null ? thisArg : this, args);
       return;
     }
-    trace = stack[stack.length - 1].start(tag);
-    Caddy.set(CURR_FRAME_KEY, trace);
+    prevFrame = Caddy.get(CURR_FRAME_KEY);
+    currFrame = prevFrame.start(tag);
+    Caddy.set(CURR_FRAME_KEY, currFrame);
+    Caddy.set(ADD_FRAME_KEY, null);
     argCount = args.length;
-    if (!atomic) {
-      stack.push(trace);
-    }
     if (argCount > 0 && typeof args[argCount - 1] === 'function') {
       stoppedFlag = false;
       callback = args[argCount - 1];
       args[argCount - 1] = function() {
-        trace.stop();
-        if (!atomic && !stoppedFlag) {
-          stack.pop();
-        }
-        stoppedFlag = true;
-        Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
-        Caddy.set(STACK_KEY, stack);
+        currFrame.stop();
+        Caddy.set(CURR_FRAME_KEY, prevFrame);
+        Caddy.set(ADD_FRAME_KEY, currFrame);
         emit(Stacktimer.STOP_EVENT, tag);
-        return callback.apply(this, Array.prototype.slice.call(arguments));
+        callback.apply(this, Array.prototype.slice.call(arguments));
+        return Caddy.set(ADD_FRAME_KEY, null);
       };
       emit(Stacktimer.START_EVENT, tag);
       fn.apply(thisArg != null ? thisArg : this, args);
+      Caddy.set(CURR_FRAME_KEY, prevFrame);
+      Caddy.set(ADD_FRAME_KEY, null);
     } else {
       emit(Stacktimer.START_EVENT, tag);
       fn.apply(thisArg != null ? thisArg : this, args);
       emit(Stacktimer.STOP_EVENT, tag);
-      trace.stop();
-      if (!atomic) {
-        stack.pop();
-      }
-      Caddy.set(CURR_FRAME_KEY, stack[stack.length - 1]);
-      Caddy.set(STACK_KEY, stack);
+      currFrame.stop();
+      Caddy.set(CURR_FRAME_KEY, prevFrame);
     }
   };
 
-  stub = function(tag, fn, atomic) {
-    if (typeof fn !== 'function') {
-      throw new Error("typeof(fn) !== 'function'");
-    }
-    if (!tag) {
-      throw new Error("provided tag does not exist");
-    }
-    return function() {
-      var args;
-      args = Array.prototype.slice.call(arguments);
-      return exec(tag, this, args, fn, atomic);
-    };
-  };
+  stub = function(tag, fn, atomic) {};
 
   emit = function(event, tag) {
     return process.nextTick(function() {
